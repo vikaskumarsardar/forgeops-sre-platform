@@ -4,6 +4,7 @@
  */
 
 import path from 'path';
+import { execSync } from 'child_process';
 import { 
   SEVERITIES, 
   HTTP_METHODS, 
@@ -102,18 +103,30 @@ export class LogService {
     const isErrorSeveritySearch = severity.toUpperCase() === SEVERITIES.ERROR;
 
     if (isLogStreamEmpty && isErrorSeveritySearch) {
-      const checkoutPath = path.resolve(process.cwd(), 'target-services/checkout-node/checkoutService.js');
-      const checkoutService = require(checkoutPath);
+      let targetServicePath = 'target-services/checkout-node/checkoutService.js';
+      if (service === 'payment-service') targetServicePath = 'target-services/payment-go/main.go';
+      else if (service === 'inventory-service') targetServicePath = 'target-services/inventory-python/app.py';
+
+      const absServicePath = path.resolve(process.cwd(), targetServicePath);
+
       try {
-        checkoutService.processCheckout({ items: [{ price: 10, quantity: 1 }], discountCode: null });
+        if (absServicePath.endsWith('.py')) {
+          execSync(`python3 ${absServicePath} "{}"`, { encoding: 'utf8' });
+        } else if (absServicePath.endsWith('.go')) {
+          execSync(`go run ${absServicePath} "{}"`, { encoding: 'utf8' });
+        } else {
+          delete require.cache[require.resolve(absServicePath)];
+          const svcModule = require(absServicePath);
+          svcModule.processCheckout({ items: [{ price: 10, quantity: 1 }], discountCode: null });
+        }
       } catch (err: any) {
         this.log({
           service,
-          version: checkoutService.version,
+          version: "1.0.0",
           severity: SEVERITIES.ERROR,
-          message: err.message,
-          stack_trace: err.stack,
-          path: API_PATHS.CHECKOUT,
+          message: err.stderr ? err.stderr.trim() : err.message,
+          stack_trace: err.stack || err.stderr || err.message,
+          path: `/api/v1/${service}`,
           method: HTTP_METHODS.POST,
           user_type: "guest"
         });
