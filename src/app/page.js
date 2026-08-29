@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import IncidentHeader from '../components/IncidentHeader';
-import AgentStream from '../components/AgentStream';
-import ApprovalModal from '../components/ApprovalModal';
+import IncidentHeader from '@/components/IncidentHeader';
+import AgentStream from '@/components/AgentStream';
+import ApprovalModal from '@/components/ApprovalModal';
+import { EVENT_TYPES, APPROVAL_DECISIONS } from '@/core/constants';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function Home() {
   const [statusData, setStatusData] = useState(null);
@@ -14,7 +17,7 @@ export default function Home() {
   // Fetch status polling
   const fetchStatus = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/status');
+      const res = await fetch(`${API_BASE}/api/status`);
       if (res.ok) {
         const data = await res.json();
         setStatusData(data);
@@ -32,15 +35,15 @@ export default function Home() {
     const interval = setInterval(fetchStatus, 3000);
 
     // Connect to SSE Live Stream
-    const eventSource = new EventSource('http://localhost:4000/api/stream');
+    const eventSource = new EventSource(`${API_BASE}/api/stream`);
 
     eventSource.onmessage = (event) => {
       const evt = JSON.parse(event.data);
       setEvents((prev) => [...prev, evt]);
 
-      if (evt.type === 'TOOL_APPROVAL_REQUIRED') {
+      if (evt.type === EVENT_TYPES.TOOL_APPROVAL_REQUIRED) {
         setPendingApproval(evt.approval);
-      } else if (evt.type === 'INCIDENT_RESOLVED' || evt.type === 'APPROVAL_REJECTED') {
+      } else if (evt.type === EVENT_TYPES.INCIDENT_RESOLVED || evt.type === EVENT_TYPES.APPROVAL_REJECTED) {
         setPendingApproval(null);
         setIsRunning(false);
         fetchStatus();
@@ -56,14 +59,14 @@ export default function Home() {
   const handleTriggerOutage = async () => {
     setEvents([]);
     setPendingApproval(null);
-    await fetch('http://localhost:4000/api/trigger-incident', { method: 'POST' });
+    await fetch(`${API_BASE}/api/trigger-incident`, { method: 'POST' });
     fetchStatus();
   };
 
   const handleStartAgent = async () => {
     setIsRunning(true);
     setEvents([]);
-    await fetch('http://localhost:4000/api/start-investigation', {
+    await fetch(`${API_BASE}/api/start-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: 'Checkout service is unhealthy. Investigate and resolve the incident.' })
@@ -71,7 +74,7 @@ export default function Home() {
   };
 
   const handleApproval = async (approvalId, decision) => {
-    await fetch('http://localhost:4000/api/approval', {
+    await fetch(`${API_BASE}/api/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvalId, decision })
@@ -93,8 +96,8 @@ export default function Home() {
 
       <ApprovalModal
         approval={pendingApproval}
-        onApprove={(id) => handleApproval(id, 'APPROVE')}
-        onReject={(id) => handleApproval(id, 'REJECT')}
+        onApprove={(id) => handleApproval(id, APPROVAL_DECISIONS.APPROVE)}
+        onReject={(id) => handleApproval(id, APPROVAL_DECISIONS.REJECT)}
       />
     </main>
   );
