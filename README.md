@@ -1,202 +1,152 @@
-# 🚀 ForgeOps: Universal AI SRE Control Plane
+# 🚀 ForgeOps — Autonomous AI SRE Control Plane Platform
 
-> **"ForgeOps is an AI SRE control plane that investigates incidents, proves root cause through reproducible evidence, validates remediation in isolation, and safely recovers production through policy-driven human approval. Its provider architecture allows the same agent to operate across different observability, source-control, sandbox, and deployment systems."**
+[![TrueForge SDK](https://img.shields.io/badge/TrueForge%20SDK-v0.1.3-8a2be2)](https://github.com/truefoundry/trueforge)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326ce5)](https://kubernetes.io/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-v2.45-e6522c)](https://prometheus.io/)
+[![Grafana Loki](https://img.shields.io/badge/Loki-v2.9-f47820)](https://grafana.com/oss/loki/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
----
-
-## 🌟 Pitch & Core Value Proposition
-
-When production outages occur, SRE teams spend critical minutes toggling between Datadog metrics, CloudWatch logs, GitHub commits, and local terminal sandboxes.
-
-**ForgeOps** is an autonomous AI SRE agent powered by the **TrueForge Agent Harness**. It does not just summarize alerts — it:
-1. **Normalizes** alerts into a canonical Incident Contract (`INC-XXXX`).
-2. **Correlates Telemetry** across pluggable Observability, Source Control, and APM Adapters.
-3. **Builds an Evidence Graph** (`EvidenceStrength: HIGH`) connecting stack traces to commit diffs.
-4. **Reproduces Bugs** safely in an isolated sandbox runner.
-5. **Verifies Candidate Patches** against regression test suites.
-6. **Enforces Policy-Driven Safety** (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL` risk tiers) to pause execution for explicit **Human-in-the-Loop (HITL)** approval.
-7. **Closed-Loop Deployment & Auto-Rollback:** Performs post-deployment health checks and triggers automated rollbacks if metrics remain degraded.
+> **ForgeOps** is an enterprise-grade Autonomous Production Site Reliability Engineering (SRE) Control Plane Platform powered by **`@truefoundry/trueforge-sdk`**. It autonomously detects HTTP 500 error spikes, parses Grafana Loki logs, reads source code, proves bugs in isolated sandboxes, enforces Human-in-the-Loop (HITL) safety policies, and performs closed-loop APM health verification with auto-rollback safeguards.
 
 ---
 
-## 🏗️ Universal 3-Layer Architecture
+## 🏛️ System Architecture & Workflow
 
 ```text
- ┌─────────────────────────────────────────────────────────────────────────┐
- │                      FORGEOPS CONTROL PLANE                             │
- │                    (TrueForge Agent Harness)                            │
- │  • Incident Contract Manager  • Multi-Tier Policy Engine (SAFE/HIGH/CRIT) │
- │  • Evidence Graph Builder     • Decoupled Event Bus (SSE / Webhooks)    │
- └───────────────────────────────────┬─────────────────────────────────────┘
-                                     │  Standard MCP Tool Protocol
-                                     ▼
- ┌─────────────────────────────────────────────────────────────────────────┐
- │                     UNIVERSAL PROVIDER REGISTRY                         │
- │           (Dynamic Infrastructure Switching via /api/provider-mode)     │
- ├─────────────────────┬───────────────────────┬───────────────────────────┤
- │  OBSERVABILITY      │    SOURCE CONTROL     │    DEPLOYMENT & SANDBOX  │
- │  PROVIDER           │    PROVIDER           │    PROVIDER               │
- │ (Prometheus/Datadog)│ (Git / GitHub / GitLab│ (Docker / k8s / Process)  │
- └──────────┬──────────┴───────────┬───────────┴─────────────┬─────────────┘
-            │                      │                         │
-            ▼                      ▼                         ▼
- ┌─────────────────────┐┌─────────────────────┐   ┌────────────────────────┐
- │   PYTHON / FASTAPI  ││     GO / FIBER      │   │   JAVA / SPRING BOOT   │
- │   Microservice      ││    Microservice     │   │      Microservice      │
- └─────────────────────┘└─────────────────────┘   └────────────────────────┘
+ ┌────────────────────────────────────────────────────────────────────────────────────────┐
+ │                              ForgeOps Sentinel Platform                                │
+ │                                                                                        │
+ │  ┌──────────────────────┐      ┌──────────────────────┐      ┌──────────────────────┐  │
+ │  │   Next.js 15 Web UI  │      │  Terminal Agent CLI  │      │ Express API Backend  │  │
+ │  │ (http://localhost:3000)│    │ (npm run agent:cli)  │      │ (http://localhost:4000)│ │
+ │  └──────────┬───────────┘      └──────────┬───────────┘      └──────────┬───────────┘  │
+ └─────────────┼─────────────────────────────┼─────────────────────────────┼──────────────┘
+               │                             │                             │
+               ▼                             ▼                             ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                TrueForge Agent Harness                                 │
+ │                              (src/server/agent/harness.ts)                             │
+ │                                                                                        │
+ │  • Native TrueForge Client SDK Integration (@truefoundry/trueforge-sdk)                │
+ │  • Pluggable LLM Strategy Pattern (Gemini 2.5 Flash / Ollama / Autonomous SRE Engine)   │
+ │  • Evidence Graph Engine (Stack Trace -> Source Lines -> Sandbox Execution Proof)      │
+ │  • Policy Risk Engine & HITL Safety Gate (policy.ts)                                  │
+ └───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                             │
+                                             ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────┐
+ │                             Infrastructure ProviderRegistry                            │
+ │                               (src/core/providerRegistry.ts)                           │
+ │                                                                                        │
+ │  ┌──────────────────────┐   ┌──────────────────────┐   ┌────────────────────────────┐  │
+ │  │  Observability (APM) │   │  Source Control API  │   │  Ephemeral Sandbox Runner  │  │
+ │  │  • Prometheus (:9090)│   │  • GitHub REST API v3│   │  • Local Process Runner    │  │
+ │  │  • Grafana Loki (:3100)│ │  • Local Git Service │   │  • K8s Container Execution │  │
+ │  └──────────────────────┘   └──────────────────────┘   └────────────────────────────┘  │
+ └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔌 Provider Abstraction Architecture & Config Switcher
+## ✨ Key Features & Technical Highlights
 
-ForgeOps decouples the AI Agent from target technology stacks using 4 core provider contracts:
-
-```text
-src/
-├── core/
-│   ├── incident.js              # Canonical Incident Contract (INC-XXXX)
-│   ├── policy.js                # Policy Risk Engine (LOW, MEDIUM, HIGH, CRITICAL Tiers)
-│   ├── evidenceGraph.js         # Evidence Chain Builder & Evidence Strength Rating
-│   ├── providerRegistry.js      # Provider Registry & Dynamic Config Switcher
-│   └── eventBus.js              # Decoupled Event Bus (SSE, CLI, Webhooks)
-│
-├── contracts/
-│   ├── observability.js         # Interface for Metrics & Logs (Prometheus, Datadog, Elastic)
-│   ├── sourceControl.js         # Interface for Git & Commits (Git, GitHub, GitLab)
-│   ├── sandbox.js               # Interface for Isolated Testing (Docker, Process, k8s)
-│   └── deployment.js            # Interface for Deployment & Auto-Rollback (Local, k8s, ArgoCD)
-│
-└── providers/
-    ├── local/                   # Zero-Dependency Local Provider (Hackathon Demo)
-    └── prometheus/              # Universal Telemetry / Docker Container Provider
-```
-
-### ⚡ Infrastructure Provider Switching Demo:
-You can switch the underlying infrastructure provider live without modifying a single line of agent code:
-
-```bash
-# Switch to Prometheus / Docker Container Provider
-curl -X POST http://localhost:4000/api/provider-mode \
-  -H "Content-Type: application/json" \
-  -d '{"mode":"prometheus"}'
-
-# Output:
-# {"status":"PROVIDER_MODE_UPDATED","activeMode":"prometheus","message":"ForgeOps infrastructure provider switched to 'prometheus' mode without modifying agent core logic."}
-```
+* **🧠 Pluggable Strategy Pattern Architecture (`llmStrategy.ts`):** Supports Gemini 2.5 Flash (`GeminiLLMProvider`), local Ollama (`OllamaLLMProvider`), and deterministic fallback (`AutonomousSREEngineProvider`).
+* **📡 Real Prometheus PromQL & Loki Telemetry (`prometheusProvider.ts`):** Queries Prometheus REST API (`:9090`) with live PromQL and Grafana Loki log query API (`:3100`). Target microservices export standard plain-text exposition metrics via `prom-client`.
+* **🛡️ Human-in-the-Loop (HITL) Safety Gate (`policy.ts`):** Classifies actions into risk tiers (`LOW` vs `HIGH`/`CRITICAL`). Halts execution and pops up the UI/CLI approval modal before applying code patches or rolling back deployments.
+* **🔄 Closed-Loop Auto-Rollback Safeguard (`harness.ts`):** Evaluates post-patch error rates in APM. If production metrics stay degraded, ForgeOps automatically executes `kubectl rollout undo` to protect cluster health.
+* **🧪 Multi-Language Sandbox Reproduction (`localSandbox.ts`):** Empirically proves bugs in **10-15ms** by measuring real process CPU delta, heap memory usage, and execution latency.
+* **⛵ Cloud-Native Kubernetes & Docker Stack (`deploy/k8s/deployment.yaml`):** Multi-stage Dockerfile (`forgeops-sre:v1.0.0`) and complete K8s manifests running in `namespace: forgeops-system` with ServiceAccount RBAC authorization.
 
 ---
 
-## 📜 Canonical Incident Contract (`INC-XXXX`)
+## 🌐 Target Microservices Architecture
 
-ForgeOps normalizes incoming alerts from Datadog, Prometheus, CloudWatch, PagerDuty, or Webhooks into a standardized schema:
+ForgeOps manages and debugs multi-language production microservices:
 
-```json
-{
-  "id": "INC-1024",
-  "source": "prometheus",
-  "severity": "CRITICAL",
-  "service": {
-    "name": "checkout-service",
-    "environment": "production",
-    "region": "us-east-1"
-  },
-  "symptoms": [
-    {
-      "type": "error_rate",
-      "value": 38.0,
-      "threshold": 5.0,
-      "unit": "percent"
-    }
-  ],
-  "timestamp": "2026-08-28T06:00:00Z"
-}
+| Microservice | Language | Repository Link | Bug Diagnostic Scenario |
+|---|---|---|---|
+| 🟢 **`checkout-service`** | **Node.js** | [forgeops-checkout-node](https://github.com/vikaskumarsardar/forgeops-checkout-node) | Unhandled `TypeError: Cannot read properties of undefined (reading 'find')` in promo rule calculation |
+| 🔵 **`payment-service`** | **Go** | [forgeops-payment-go](https://github.com/vikaskumarsardar/forgeops-payment-go) | Division-by-zero runtime panic when `ConversionRate == 0` |
+| 🐍 **`inventory-service`** | **Python** | [forgeops-inventory-python](https://github.com/vikaskumarsardar/forgeops-inventory-python) | String `ValueError` when `warehouse_id` receives non-numeric `"MAIN_ZONE_A"` |
+
+---
+
+## 🔑 TrueForge SDK Integration & Compliance
+
+ForgeOps natively integrates with `@truefoundry/trueforge-sdk`:
+
+```typescript
+import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+// 1. Initialize TrueForge Client
+const trueforgeClient = new TrueForge({ baseUrl: process.env.TRUEFORGE_DAEMON_URL });
+
+// 2. Register Agent Specification
+const agent = await trueforgeClient.agents.create({
+  name: 'forgeops-sre-agent',
+  manifest: { description: 'Autonomous Production SRE Debugging Agent' }
+});
+
+// 3. Create Investigation Session
+const session = await trueforgeClient.sessions.create({
+  agentId: agent.id,
+  options: { title: 'Incident INC-1024 Investigation' }
+});
 ```
 
 ---
 
-## 🚨 Policy Engine & Closed-Loop Remediation
-
-Before executing any action, the **Policy Engine** classifies tool risk:
-
-* **`RISK: LOW` (Auto-Executed):** Read-only metrics inspection, log search, source code inspection, and sandbox test runs.
-* **`RISK: HIGH / CRITICAL` (Human Approval Required):** Physical code patches, Git commits, production rollbacks, and server restarts.
-
-```text
-               AI Agent Proposes Action
-                          │
-                          ▼
-                    Policy Engine
-                          │
-            ┌─────────────┴─────────────┐
-            ▼                           ▼
-       RISK: LOW                   RISK: HIGH / CRITICAL
-      (Auto-Run)               (Freeze Execution Loop)
-                                        │
-                                        ▼
-                            🚨 Human Approval Gate
-                            (Web Dashboard / CLI)
-                                        │
-                             ┌──────────┴──────────┐
-                             ▼                     ▼
-                        [APPROVE]              [REJECT]
-                             │
-                             ▼
-                    Physical File Patch &
-                     Git Commit on Disk
-                             │
-                             ▼
-                 Post-Deploy Health Check
-                 (Auto-Rollback if Degraded)
-```
-
----
-
-## 🚦 Dual-Track Architecture
-
-ForgeOps is built to showcase both enterprise daemon integration and 100% reliable local demo execution:
-
-* **Track B (TrueForge Daemon SDK Integration):**  
-  Uses `@truefoundry/trueforge-sdk` to programmatically register model providers (`client.settings.modelProviders.createOrUpdate`), agents (`client.agents.create`), and native sessions (`client.sessions.create`) against the TrueForge daemon listening on `http://localhost:8790`.
-* **Track A (Guaranteed Local Engine):**  
-  Uses local orchestration contracts with **Google GenAI (`@google/genai`) Gemini 2.5 Flash** to guarantee a 100% reliable live presentation.
-
----
-
-## 🧪 Qodo Code Review Evidence
-
-> **Hackathon Submission Trail:**
-
-- **PR #1:** Core Provider Abstraction & Incident Contract ([Merged](#))
-- **PR #2:** Policy Engine & Human Approval Gate Integration ([Merged](#))
-- **PR #3:** Glassmorphic Command Center Dashboard ([Merged](#))
-
----
-
-## 🚀 Quickstart
+## 🚀 Quick Start Guide
 
 ### Prerequisites
-* Node.js v18+
-* TrueForge CLI (`npx @truefoundry/trueforge --port 8790`)
+* **Node.js**: v18.0.0+
+* **npm**: v9.0.0+
+* **kubectl** & **Docker** (for Kubernetes execution)
 
 ### 1. Installation
+
 ```bash
-git clone https://github.com/your-username/trueforge.git
-cd trueforge
+git clone https://github.com/vikaskumarsardar/forgeops-sre-platform.git
+cd forgeops-sre-platform
 npm install
 ```
 
-### 2. Run in Web Dashboard Mode (Preferred)
+### 2. Run Local Development Servers
+
 ```bash
-# Terminal 1: Backend Control Plane (Port 4000)
+# Terminal 1: Start Express API Backend (Port 4000)
 npm run server
 
-# Terminal 2: Next.js Command Center (Port 3000)
+# Terminal 2: Start Next.js Cyberpunk Web UI (Port 3000)
 npm run dev
 ```
-Open **`http://localhost:3000`** in your browser.
 
-### 3. Run in CLI Terminal Mode
+Open **[http://localhost:3000](http://localhost:3000)** in your browser. Click **`🤖 Start Agent Triage`** to trigger the live SSE event stream!
+
+### 3. Run Terminal CLI Agent
+
 ```bash
+# Terminal 3: Run Interactive CLI Agent Triage Loop
 npm run agent:cli
 ```
+
+### 4. Deploy & Verify in Production Kubernetes
+
+```bash
+# Apply Kubernetes Manifests (Prometheus, Loki, Control Plane)
+kubectl apply -f deploy/k8s/deployment.yaml
+
+# Check Pod Status in forgeops-system namespace
+kubectl get pods -n forgeops-system
+
+# Run In-Pod CLI Agent Execution
+kubectl exec -n forgeops-system deployment/forgeops-control-plane -- npx tsx src/server/cliRunner.ts
+```
+
+---
+
+## 📝 License & Commit Author
+
+* **Author:** Swapan Kumar Sardar (`swapankumarsardar73727@gmail.com`)
+* **GitHub Username:** `vikaskumarsardar`
+* **License:** MIT License
