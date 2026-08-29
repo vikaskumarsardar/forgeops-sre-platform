@@ -321,6 +321,15 @@ export class TrueForgeHarness {
         });
       }
     }
+
+    if (this.sessionState === SESSION_STATES.INVESTIGATING) {
+      this.sessionState = SESSION_STATES.RESOLVED;
+      this.emit({
+        type: EVENT_TYPES.INCIDENT_RESOLVED,
+        thought: "Autonomous investigation and remediation complete.",
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 
   async resolveApproval(approvalId: string, decision: string): Promise<any> {
