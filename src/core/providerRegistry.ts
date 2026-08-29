@@ -7,7 +7,7 @@ import localObservability from '@/providers/local/localObservability';
 import localGit from '@/providers/local/localGit';
 import localSandbox from '@/providers/local/localSandbox';
 import localDeployment from '@/providers/local/localDeployment';
-import prometheusProvider from '@/providers/prometheus/prometheusProvider';
+import prometheusLokiProvider from '@/providers/observability/prometheusLokiProvider';
 import githubProvider from '@/providers/github/githubProvider';
 import kubernetesProvider from '@/providers/kubernetes/kubernetesProvider';
 import { PROVIDER_CATEGORIES } from '@/core/constants';
@@ -26,8 +26,8 @@ export class ProviderRegistry {
     this.register(PROVIDER_CATEGORIES.SANDBOX, "local", localSandbox);
     this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "local", localDeployment);
 
-    // 2. Production Enterprise Cloud Provider Mode (Prometheus, GitHub REST API, K8s)
-    this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "prometheus", prometheusProvider);
+    // 2. Production Enterprise Cloud Provider Mode (Prometheus + Loki, GitHub REST API, K8s)
+    this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "prometheus", prometheusLokiProvider);
     this.register(PROVIDER_CATEGORIES.SOURCE_CONTROL, "github", githubProvider);
     this.register(PROVIDER_CATEGORIES.SANDBOX, "docker", localSandbox);
     this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "kubernetes", kubernetesProvider);
