@@ -15,7 +15,10 @@ export class PolicyEngine {
       action === REMEDIATION_ACTIONS.DEPLOY_CODE_PATCH || 
       action === REMEDIATION_ACTIONS.MODIFY_SOURCE;
 
-    const isRollbackAction = action === REMEDIATION_ACTIONS.ROLLBACK_DEPLOYMENT;
+    const isRollbackAction = 
+      action === REMEDIATION_ACTIONS.ROLLBACK_DEPLOYMENT || 
+      action === 'rollback' || 
+      String(action).toLowerCase().includes('rollback');
     const isRestartAction = action === REMEDIATION_ACTIONS.RESTART_SERVICE;
 
     if (isCodeModificationAction) {
