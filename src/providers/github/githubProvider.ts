@@ -17,12 +17,13 @@ export class GitHubProvider implements SourceControlProvider {
   }
 
   private getHeaders(): Record<string, string> {
+    const activeToken = this.token || process.env.GITHUB_TOKEN || "";
     const headers: Record<string, string> = {
       "Accept": HTTP_CONTENT_TYPES.GITHUB_V3_JSON,
       "User-Agent": "ForgeOps-SRE-Agent"
     };
-    if (this.token) {
-      headers["Authorization"] = `Bearer ${this.token}`;
+    if (activeToken) {
+      headers["Authorization"] = `token ${activeToken}`;
     }
     return headers;
   }

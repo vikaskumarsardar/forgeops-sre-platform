@@ -20,8 +20,8 @@ export class GeminiLLMProvider implements LLMProvider {
   private ai: GoogleGenAI;
   private modelName: string;
 
-  constructor(apiKey: string = process.env.GEMINI_API_KEY || '', modelName: string = 'gemini-2.5-flash') {
-    this.ai = new GoogleGenAI({ apiKey });
+  constructor(apiKey: string = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '', modelName: string = 'models/gemini-3.6-flash') {
+    this.ai = new GoogleGenAI({ apiKey: apiKey || undefined });
     this.modelName = modelName;
   }
 
