@@ -1,7 +1,6 @@
 /**
  * Universal Production Sandbox Execution & Telemetry Provider (TypeScript)
- * Universal Multi-Language Support: .NET C# (.cs), Python (.py), Go (.go), Rust (.rs), Java (.java), Ruby (.rb), Node.js (.js/.ts)
- * Handles Class Instances, Prototype Methods, Direct Exports, CLI processes, and Multi-Framework Test Suites.
+ * Universal Multi-Language Support: Node.js (.js/.ts), Go (.go), Python (.py), C# (.cs), Rust (.rs), Ruby (.rb)
  */
 
 import { SandboxProvider } from '@/types/providerContracts';
@@ -12,8 +11,6 @@ import { EXECUTION_STATUS, SERVICE_STATUS, SANDBOX_ENVIRONMENTS } from '@/core/c
 
 function parseTestOutput(text: string): { passCount: number; failCount: number; errorRate: number } {
   const content = text || "";
-
-  // 1. Jest / Vitest Summary Parser: "Tests: 1 failed, 2 passed, 3 total"
   const jestMatch = content.match(/Tests:\s*(?:(\d+)\s*failed,?\s*)?(?:(\d+)\s*passed,?\s*)?(\d+)\s*total/i);
   if (jestMatch) {
     const fail = parseInt(jestMatch[1] || '0', 10);
@@ -21,8 +18,6 @@ function parseTestOutput(text: string): { passCount: number; failCount: number; 
     const total = Math.max(1, parseInt(jestMatch[3] || '1', 10));
     return { passCount: pass, failCount: fail, errorRate: parseFloat(((fail / total) * 100).toFixed(1)) };
   }
-
-  // 2. Pytest / Cargo / Go / .NET xUnit Summary Parser: "1 passed, 1 failed"
   const cargoMatch = content.match(/(\d+)\s*passed;?\s*,?\s*(\d+)\s*failed/i);
   if (cargoMatch) {
     const pass = parseInt(cargoMatch[1], 10);
@@ -30,8 +25,6 @@ function parseTestOutput(text: string): { passCount: number; failCount: number; 
     const total = Math.max(1, pass + fail);
     return { passCount: pass, failCount: fail, errorRate: parseFloat(((fail / total) * 100).toFixed(1)) };
   }
-
-  // 3. Broad Multi-Framework Token Matcher (.NET VSTest, Node test runner, Mocha, Pytest, Go, Cargo)
   const passMatches = (content.match(/✔|\bpass(ed|ing)?\b/gi) || []).length;
   const failMatches = (content.match(/✖|\bfail(ed|ing|ure|ures)?\b|AssertionError|Error:/gi) || []).length;
   const total = Math.max(1, passMatches + failMatches);
@@ -43,27 +36,20 @@ function parseTestOutput(text: string): { passCount: number; failCount: number; 
 function resolveModuleHandler(targetModule: any, handlerName?: string): any {
   if (!targetModule) return null;
   if (typeof targetModule === 'function') return targetModule;
-
   if (handlerName && typeof targetModule[handlerName] === 'function') {
     return targetModule[handlerName].bind(targetModule);
   }
-
   const proto = Object.getPrototypeOf(targetModule) || {};
   const allKeys = Array.from(new Set([...Object.keys(targetModule), ...Object.getOwnPropertyNames(proto)]));
-  
-  // Prioritize primary domain handler method names
   const preferredNames = ['processCheckout', 'processPayment', 'checkInventory', 'handleRequest', 'execute', 'processOrder', 'default'];
   const priorityMatch = preferredNames.find(name => allKeys.includes(name) && typeof targetModule[name] === 'function');
-
   if (priorityMatch) {
     return targetModule[priorityMatch].bind(targetModule);
   }
-
   const candidateKey = allKeys.find(k => k !== 'constructor' && k !== 'refreshGitInfo' && typeof targetModule[k] === 'function');
   if (candidateKey && typeof targetModule[candidateKey] === 'function') {
     return targetModule[candidateKey].bind(targetModule);
   }
-
   return null;
 }
 
@@ -77,7 +63,11 @@ export class LocalSandboxProvider implements SandboxProvider {
     const startMemory = process.memoryUsage().heapUsed;
     const startCpu = process.cpuUsage();
 
-    const targetServicePath = servicePath || 'target-services/checkout-node/checkoutService';
+    if (!servicePath && !executionCommand) {
+      throw new Error("reproduceBug requires either 'servicePath' or 'executionCommand' parameter.");
+    }
+
+    const targetServicePath = servicePath || '';
     const resolvedServicePath = path.resolve(process.cwd(), targetServicePath);
     const jsonPayload = JSON.stringify(payload).replace(/"/g, '\\"');
 
@@ -92,41 +82,28 @@ export class LocalSandboxProvider implements SandboxProvider {
     try {
       let result: any;
 
-      // 1. Generic Custom CLI Execution Command (e.g. "dotnet run", "pytest", "cargo test")
       if (executionCommand) {
         const stdout = execSync(executionCommand, {
           encoding: 'utf8',
           env: { ...process.env, SANDBOX_PAYLOAD: JSON.stringify(payload) }
         });
         result = stdout.trim();
-      } 
-      // 2. .NET C# Microservice (.cs / .csproj)
-      else if (resolvedServicePath.endsWith('.cs') || resolvedServicePath.endsWith('.csproj')) {
+      } else if (resolvedServicePath.endsWith('.cs') || resolvedServicePath.endsWith('.csproj')) {
         const stdout = execSync(`dotnet run --project ${resolvedServicePath} -- "${jsonPayload}"`, { encoding: 'utf8' });
         result = stdout.trim();
-      }
-      // 3. Python Microservice (.py)
-      else if (resolvedServicePath.endsWith('.py')) {
+      } else if (resolvedServicePath.endsWith('.py')) {
         const stdout = execSync(`python3 ${resolvedServicePath} "${jsonPayload}"`, { encoding: 'utf8' });
         result = stdout.trim();
-      }
-      // 4. Go Microservice (.go)
-      else if (resolvedServicePath.endsWith('.go')) {
+      } else if (resolvedServicePath.endsWith('.go')) {
         const stdout = execSync(`go run ${resolvedServicePath} "${jsonPayload}"`, { encoding: 'utf8' });
         result = stdout.trim();
-      }
-      // 5. Rust Microservice (.rs)
-      else if (resolvedServicePath.endsWith('.rs')) {
+      } else if (resolvedServicePath.endsWith('.rs')) {
         const stdout = execSync(`cargo run -- "${jsonPayload}"`, { encoding: 'utf8', cwd: path.dirname(resolvedServicePath) });
         result = stdout.trim();
-      }
-      // 6. Ruby Microservice (.rb)
-      else if (resolvedServicePath.endsWith('.rb')) {
+      } else if (resolvedServicePath.endsWith('.rb')) {
         const stdout = execSync(`ruby ${resolvedServicePath} "${jsonPayload}"`, { encoding: 'utf8' });
         result = stdout.trim();
-      }
-      // 7. Node.js / JavaScript / TypeScript Microservice (.js / .ts)
-      else {
+      } else {
         try {
           delete require.cache[require.resolve(resolvedServicePath)];
         } catch (e) {}
@@ -197,12 +174,14 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   async runUnitTests(command?: string): Promise<any> {
     const startTime = performance.now();
-    const testCommand = command || process.env.TEST_COMMAND || 'node target-services/checkout-node/tests/checkout.test.js';
+    if (!command && !process.env.TEST_COMMAND) {
+      throw new Error("runUnitTests tool requires explicit 'command' parameter.");
+    }
+    const testCommand = command || process.env.TEST_COMMAND!;
 
     try {
       const stdout = execSync(testCommand, { encoding: 'utf8', cwd: process.cwd() });
       const endTime = performance.now();
-
       const { passCount, failCount, errorRate } = parseTestOutput(stdout);
 
       return {
@@ -248,4 +227,5 @@ export class LocalSandboxProvider implements SandboxProvider {
   }
 }
 
-export default new LocalSandboxProvider();
+export const localSandboxProvider = new LocalSandboxProvider();
+export default localSandboxProvider;

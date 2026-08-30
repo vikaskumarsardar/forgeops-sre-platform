@@ -1,9 +1,11 @@
 'use client';
 
+import { SERVICE_STATUS, SESSION_STATES } from '@/core/constants';
+
 export default function IncidentHeader({ statusData, onTriggerOutage, onStartAgent, isRunning }) {
   const metrics = statusData?.metrics?.metrics || {};
-  const isDegraded = statusData?.metrics?.status === "DEGRADED";
-  const agentState = statusData?.agent_state || "IDLE";
+  const isDegraded = statusData?.metrics?.status === SERVICE_STATUS.DEGRADED;
+  const agentState = statusData?.agent_state || SESSION_STATES.IDLE;
 
   return (
     <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
@@ -34,7 +36,7 @@ export default function IncidentHeader({ statusData, onTriggerOutage, onStartAge
           <button 
             className="btn-primary" 
             onClick={onStartAgent}
-            disabled={isRunning || agentState !== "IDLE"}
+            disabled={isRunning || agentState !== SESSION_STATES.IDLE}
           >
             🤖 Start Agent Triage
           </button>

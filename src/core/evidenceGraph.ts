@@ -1,11 +1,13 @@
 /**
- * Evidence Graph & Root Cause Chain (TypeScript)
- * Builds structured evidence chains to substantiate AI SRE incident diagnoses.
+ * Dynamic Evidence Graph System (TypeScript)
+ * Tracks captured evidence nodes and dynamically re-evaluates evidence strength.
  */
+
+import { EVIDENCE_STRENGTH, EVIDENCE_CATEGORIES } from '@/core/constants';
 
 export interface EvidenceNode {
   id: string;
-  category: string;
+  category: keyof typeof EVIDENCE_CATEGORIES | string;
   description: string;
   payload: any;
   verified: boolean;
@@ -15,12 +17,12 @@ export interface EvidenceNode {
 export class EvidenceGraph {
   incidentId: string;
   evidenceChain: EvidenceNode[];
-  evidenceStrength: "LOW" | "MEDIUM" | "HIGH";
+  evidenceStrength: keyof typeof EVIDENCE_STRENGTH;
 
-  constructor(incidentId?: string) {
-    this.incidentId = incidentId || `INC-${Date.now()}`;
+  constructor(incidentId: string) {
+    this.incidentId = incidentId;
     this.evidenceChain = [];
-    this.evidenceStrength = "LOW";
+    this.evidenceStrength = EVIDENCE_STRENGTH.LOW;
   }
 
   addEvidence({
@@ -51,11 +53,11 @@ export class EvidenceGraph {
   reevaluateStrength(): void {
     const verifiedCount = this.evidenceChain.filter(e => e.verified).length;
     if (verifiedCount >= 3) {
-      this.evidenceStrength = "HIGH";
+      this.evidenceStrength = EVIDENCE_STRENGTH.HIGH;
     } else if (verifiedCount >= 1) {
-      this.evidenceStrength = "MEDIUM";
+      this.evidenceStrength = EVIDENCE_STRENGTH.MEDIUM;
     } else {
-      this.evidenceStrength = "LOW";
+      this.evidenceStrength = EVIDENCE_STRENGTH.LOW;
     }
   }
 

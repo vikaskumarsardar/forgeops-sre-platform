@@ -1,9 +1,10 @@
 /**
  * Metrics MCP Tool (TypeScript)
- * Co-located tool definition and identifier.
+ * Delegates dynamically to ProviderRegistry Observability Provider.
  */
 
-import metricsService from '@/providers/local/metricsService';
+import providerRegistry from '@/core/providerRegistry';
+import { PROVIDER_CATEGORIES, DEFAULT_CONFIG } from '@/core/constants';
 
 export const GET_METRICS_TOOL_NAME = 'get_metrics' as const;
 
@@ -23,7 +24,7 @@ export default {
       }
     }
   },
-  execute: async ({ service_name = "checkout-service", timeframe_minutes = 15 }: { service_name?: string; timeframe_minutes?: number }) => {
-    return metricsService.getMetrics(service_name, timeframe_minutes);
+  execute: async ({ service_name = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME, timeframe_minutes = 15 }: { service_name?: string; timeframe_minutes?: number }) => {
+    return providerRegistry.get(PROVIDER_CATEGORIES.OBSERVABILITY).getMetrics(service_name, timeframe_minutes);
   }
 };

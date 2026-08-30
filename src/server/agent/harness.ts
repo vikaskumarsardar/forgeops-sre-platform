@@ -169,8 +169,11 @@ export class TrueForgeHarness {
         return history;
       }
       case TOOL_NAMES.READ_SOURCE_CODE: {
+        if (!toolArgs.file_path) {
+          throw new Error("read_source_code tool requires 'file_path' parameter.");
+        }
         return providerRegistry.get(PROVIDER_CATEGORIES.SOURCE_CONTROL).readSourceCode(
-          toolArgs.file_path || 'target-services/checkout-node/checkoutService.js'
+          toolArgs.file_path
         );
       }
       case TOOL_NAMES.RUN_SANDBOX_TEST: {

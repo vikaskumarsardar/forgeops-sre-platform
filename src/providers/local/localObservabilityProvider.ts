@@ -1,18 +1,19 @@
 /**
- * Universal Production APM & Prometheus Metrics Collector (TypeScript)
- * Evaluates real-time microservice telemetry, error rates from application logs, and system process resources.
+ * Local Observability Provider (TypeScript)
+ * Implements ObservabilityProvider collecting real-time Node.js heap memory, process CPU, and log stream APM metrics.
  */
 
+import { ObservabilityProvider } from '@/types/providerContracts';
 import { performance } from 'perf_hooks';
-import logService from './logService';
+import logService from '@/providers/local/logService';
 import { SERVICE_STATUS, SEVERITIES, DEFAULT_CONFIG } from '@/core/constants';
 
-export class MetricsService {
-  getMetrics(serviceName: string = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME, timeframeMinutes: number = DEFAULT_CONFIG.DEFAULT_TIMEFRAME_MINUTES): any {
-    // 1. Measure real Node.js process heap memory usage (in MB)
+export class LocalObservabilityProvider implements ObservabilityProvider {
+  async getMetrics(serviceName: string = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME, timeframeMinutes: number = DEFAULT_CONFIG.DEFAULT_TIMEFRAME_MINUTES): Promise<any> {
+    // 1. Measure Node.js process heap memory usage (in MB)
     const realMemoryMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
 
-    // 2. Measure real Node.js process CPU utilization
+    // 2. Measure Node.js process CPU utilization
     const cpuUsage = process.cpuUsage();
     const realCpuUtilizationPct = parseFloat(((cpuUsage.user / (1000 * 1000)) % 100).toFixed(1)) || 12.5;
 
@@ -22,11 +23,9 @@ export class MetricsService {
       ? logs.filter(l => l.service && l.service.toLowerCase().includes(serviceName.toLowerCase()))
       : logs;
     
-    // Extract recent error stack traces & HTTP status codes
     const errorLogs = serviceLogs.filter(l => l.severity === SEVERITIES.ERROR);
     const latestErrorLog = errorLogs[0] || null;
 
-    // Dynamic APM Status Determination based on active error logs
     const isDegraded = errorLogs.length > 0;
     const healthCheckError = latestErrorLog ? latestErrorLog.message : null;
     const currentServiceStatus = isDegraded ? SERVICE_STATUS.DEGRADED : SERVICE_STATUS.HEALTHY;
@@ -64,6 +63,11 @@ export class MetricsService {
       timestamp: new Date().toISOString()
     };
   }
+
+  async searchLogs(serviceName: string, severity?: string, limit?: number): Promise<any> {
+    return logService.searchLogs({ service: serviceName, severity, limit });
+  }
 }
 
-export default new MetricsService();
+export const localObservabilityProvider = new LocalObservabilityProvider();
+export default localObservabilityProvider;

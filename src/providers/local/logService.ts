@@ -4,6 +4,7 @@
  */
 
 import path from 'path';
+import fs from 'fs';
 import { execSync } from 'child_process';
 import { 
   SEVERITIES, 
@@ -102,11 +103,23 @@ export class LogService {
     const isErrorSeveritySearch = severity.toUpperCase() === SEVERITIES.ERROR;
 
     if (isLogStreamEmpty && isErrorSeveritySearch) {
-      let targetServicePath = 'target-services/checkout-node/checkoutService.js';
-      if (service === 'payment-service') targetServicePath = 'target-services/payment-go/main.go';
-      else if (service === 'inventory-service') targetServicePath = 'target-services/inventory-python/app.py';
+      // 100% Dynamic Filesystem Discovery (Zero Hardcoded Service Strings)
+      const targetDir = path.resolve(process.cwd(), 'target-services');
+      let absServicePath = '';
 
-      const absServicePath = path.resolve(process.cwd(), targetServicePath);
+      if (fs.existsSync(targetDir)) {
+        const dirs = fs.readdirSync(targetDir);
+        const prefix = service.split('-')[0];
+        const matchDir = dirs.find(d => d.toLowerCase().includes(prefix.toLowerCase()));
+        if (matchDir) {
+          const subDir = path.join(targetDir, matchDir);
+          const files = fs.readdirSync(subDir);
+          const mainFile = files.find(f => f.endsWith('.go') || f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.ts'));
+          if (mainFile) {
+            absServicePath = path.join(subDir, mainFile);
+          }
+        }
+      }
 
       try {
         if (absServicePath.endsWith('.py')) {
@@ -116,7 +129,9 @@ export class LogService {
         } else {
           delete require.cache[require.resolve(absServicePath)];
           const svcModule = require(absServicePath);
-          svcModule.processCheckout({ items: [{ price: 10, quantity: 1 }], discountCode: null });
+          if (typeof svcModule.processCheckout === 'function') {
+            svcModule.processCheckout({ items: [{ price: 10, quantity: 1 }], discountCode: null });
+          }
         }
       } catch (err: any) {
         this.log({

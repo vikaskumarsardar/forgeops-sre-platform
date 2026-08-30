@@ -1,9 +1,10 @@
 /**
  * Git Deployment History MCP Tool (TypeScript)
- * Co-located tool definition and identifier.
+ * Delegates dynamically to ProviderRegistry Source Control Provider.
  */
 
-import gitService from '@/providers/local/gitService';
+import providerRegistry from '@/core/providerRegistry';
+import { PROVIDER_CATEGORIES, DEFAULT_CONFIG } from '@/core/constants';
 
 export const GET_DEPLOYMENT_HISTORY_TOOL_NAME = 'get_deployment_history' as const;
 
@@ -23,10 +24,11 @@ export default {
       }
     }
   },
-  execute: async ({ service_name = "checkout-service", commit_sha }: { service_name?: string; commit_sha?: string }) => {
+  execute: async ({ service_name = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME, commit_sha }: { service_name?: string; commit_sha?: string }) => {
+    const sourceControl = providerRegistry.get(PROVIDER_CATEGORIES.SOURCE_CONTROL);
     if (commit_sha) {
-      return gitService.getCommitDiff(commit_sha);
+      return sourceControl.getCommitDiff(commit_sha);
     }
-    return gitService.getDeploymentHistory(service_name);
+    return sourceControl.getDeploymentHistory(service_name);
   }
 };

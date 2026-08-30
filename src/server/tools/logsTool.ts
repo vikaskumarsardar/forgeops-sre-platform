@@ -1,9 +1,10 @@
 /**
  * Application Logs MCP Tool (TypeScript)
- * Co-located tool definition and identifier.
+ * Delegates dynamically to ProviderRegistry Observability Provider.
  */
 
-import logService from '@/providers/local/logService';
+import providerRegistry from '@/core/providerRegistry';
+import { PROVIDER_CATEGORIES, DEFAULT_CONFIG, SEVERITIES } from '@/core/constants';
 
 export const SEARCH_LOGS_TOOL_NAME = 'search_logs' as const;
 
@@ -27,7 +28,7 @@ export default {
       }
     }
   },
-  execute: async ({ service_name = "checkout-service", severity = "ERROR", limit = 5 }: { service_name?: string; severity?: string; limit?: number }) => {
-    return logService.searchLogs({ service: service_name, severity, limit });
+  execute: async ({ service_name = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME, severity = SEVERITIES.ERROR, limit = 5 }: { service_name?: string; severity?: string; limit?: number }) => {
+    return providerRegistry.get(PROVIDER_CATEGORIES.OBSERVABILITY).searchLogs(service_name, severity, limit);
   }
 };

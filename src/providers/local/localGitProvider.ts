@@ -1,14 +1,16 @@
 /**
- * Real Git Integration Service (TypeScript)
- * Executes real `git log` and `git show` CLI commands against the repository.
- * Zero false success responses.
+ * Local Source Control Provider (TypeScript)
+ * Implements SourceControlProvider using real git CLI execution.
  */
 
+import fs from 'fs';
+import path from 'path';
 import { execSync } from 'child_process';
+import { SourceControlProvider } from '@/types/providerContracts';
 import { DEFAULT_CONFIG, EXECUTION_STATUS } from '@/core/constants';
 
-export class GitService {
-  getDeploymentHistory(serviceName: string = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME): any {
+export class LocalGitProvider implements SourceControlProvider {
+  async getDeploymentHistory(serviceName: string = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME): Promise<any> {
     try {
       const rawLog = execSync(
         `git log -n 5 --pretty=format:"%H|%an <%ae>|%ad|%s"`,
@@ -39,7 +41,7 @@ export class GitService {
     }
   }
 
-  getCommitDiff(commitSha?: string): any {
+  async getCommitDiff(commitSha?: string): Promise<any> {
     try {
       const shaToInspect = commitSha || "HEAD";
       const diffOutput = execSync(
@@ -74,6 +76,18 @@ export class GitService {
       throw new Error(`Failed to fetch git diff for commit '${commitSha || "HEAD"}': ${err.message}`);
     }
   }
+
+  async readSourceCode(filePath: string): Promise<any> {
+    const fullPath = path.resolve(process.cwd(), filePath);
+    const content = fs.readFileSync(fullPath, 'utf8');
+    return {
+      file_path: filePath,
+      status: EXECUTION_STATUS.SUCCESS,
+      lines: content.split('\n').length,
+      content
+    };
+  }
 }
 
-export default new GitService();
+export const localGitProvider = new LocalGitProvider();
+export default localGitProvider;

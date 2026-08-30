@@ -3,10 +3,10 @@
  * Manages provider registration and dynamic infrastructure switching.
  */
 
-import localObservability from '@/providers/local/localObservability';
-import localGit from '@/providers/local/localGit';
-import localSandbox from '@/providers/local/localSandbox';
-import localDeployment from '@/providers/local/localDeployment';
+import localObservabilityProvider from '@/providers/local/localObservabilityProvider';
+import localGitProvider from '@/providers/local/localGitProvider';
+import localSandboxProvider from '@/providers/local/localSandboxProvider';
+import localDeploymentProvider from '@/providers/local/localDeploymentProvider';
 import prometheusLokiProvider from '@/providers/observability/prometheusLokiProvider';
 import githubProvider from '@/providers/github/githubProvider';
 import kubernetesProvider from '@/providers/kubernetes/kubernetesProvider';
@@ -21,15 +21,15 @@ export class ProviderRegistry {
     this.activeMode = "local";
 
     // 1. Local Zero-Dependency Demo Mode
-    this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "local", localObservability);
-    this.register(PROVIDER_CATEGORIES.SOURCE_CONTROL, "local", localGit);
-    this.register(PROVIDER_CATEGORIES.SANDBOX, "local", localSandbox);
-    this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "local", localDeployment);
+    this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "local", localObservabilityProvider);
+    this.register(PROVIDER_CATEGORIES.SOURCE_CONTROL, "local", localGitProvider);
+    this.register(PROVIDER_CATEGORIES.SANDBOX, "local", localSandboxProvider);
+    this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "local", localDeploymentProvider);
 
     // 2. Production Enterprise Cloud Provider Mode (Prometheus + Loki, GitHub REST API, K8s)
     this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "prometheus", prometheusLokiProvider);
     this.register(PROVIDER_CATEGORIES.SOURCE_CONTROL, "github", githubProvider);
-    this.register(PROVIDER_CATEGORIES.SANDBOX, "docker", localSandbox);
+    this.register(PROVIDER_CATEGORIES.SANDBOX, "docker", localSandboxProvider);
     this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "kubernetes", kubernetesProvider);
   }
 

@@ -12,7 +12,9 @@ import providerRegistry from '@/core/providerRegistry';
 import { 
   REMEDIATION_ACTIONS, 
   EXECUTION_STATUS, 
-  REMEDIATION_RESULTS 
+  REMEDIATION_RESULTS,
+  REMEDIATION_MODES,
+  PROVIDER_CATEGORIES
 } from '@/core/constants';
 
 export const APPLY_REMEDIATION_TOOL_NAME = 'apply_remediation' as const;
@@ -72,11 +74,11 @@ export default {
 
     // 1. Enterprise GitHub Cloud Execution Track
     if (isRemoteGitHubMode) {
-      const githubProvider = providerRegistry.get('sourceControl');
+      const githubProvider = providerRegistry.get(PROVIDER_CATEGORIES.SOURCE_CONTROL);
       
       if (isDeployCodePatchAction) {
         const prResult = await githubProvider.createPullRequest({
-          title: `fix(sre): autonomous production patch for ${target_file || 'checkout service'}`,
+          title: `fix(sre): autonomous production patch for ${target_file || 'target service'}`,
           body: `## Root Cause & Remediation Reasoning\n${reasoning}\n\n### Proposed Patch\n\`\`\`js\n${replacement_code || code_patch || ''}\n\`\`\``,
           headBranch: `fix/sre-${Date.now()}`,
           baseBranch: "main"
@@ -85,7 +87,7 @@ export default {
         return {
           status: EXECUTION_STATUS.SUCCESS,
           action: REMEDIATION_RESULTS.DEPLOY_PATCH,
-          mode: "GITHUB_REMOTE_PR",
+          mode: REMEDIATION_MODES.GITHUB_REMOTE_PR,
           pull_request: prResult,
           reasoning,
           post_patch_health: REMEDIATION_RESULTS.VERIFIED_PASSED
@@ -96,7 +98,7 @@ export default {
         return {
           status: EXECUTION_STATUS.SUCCESS,
           action: REMEDIATION_RESULTS.ROLLBACK,
-          mode: "GITHUB_REMOTE_ROLLBACK",
+          mode: REMEDIATION_MODES.GITHUB_REMOTE_ROLLBACK,
           message: "Triggered GitHub Release Rollback deployment pipeline via REST API.",
           reasoning
         };
@@ -146,7 +148,7 @@ export default {
         return {
           status: EXECUTION_STATUS.SUCCESS,
           action: REMEDIATION_RESULTS.DEPLOY_PATCH,
-          mode: "LOCAL_DISK_PATCH",
+          mode: REMEDIATION_MODES.LOCAL_DISK_PATCH,
           file_patched: relPath,
           reasoning,
           post_patch_health: REMEDIATION_RESULTS.VERIFIED_PASSED
@@ -165,7 +167,7 @@ export default {
         return {
           status: EXECUTION_STATUS.SUCCESS,
           action: REMEDIATION_RESULTS.ROLLBACK,
-          mode: "LOCAL_GIT_ROLLBACK",
+          mode: REMEDIATION_MODES.LOCAL_GIT_ROLLBACK,
           file_rolled_back: relPath,
           reasoning
         };

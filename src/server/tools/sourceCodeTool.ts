@@ -1,11 +1,10 @@
 /**
  * Source Code Inspection MCP Tool (TypeScript)
- * Co-located tool definition and identifier.
+ * Delegates dynamically to ProviderRegistry Source Control Provider.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { EXECUTION_STATUS } from '@/core/constants';
+import providerRegistry from '@/core/providerRegistry';
+import { PROVIDER_CATEGORIES } from '@/core/constants';
 
 export const READ_SOURCE_CODE_TOOL_NAME = 'read_source_code' as const;
 
@@ -17,27 +16,12 @@ export default {
     properties: {
       file_path: {
         type: "string",
-        description: "Relative file path (e.g. target-services/checkout-node/checkoutService.js)"
+        description: "Relative file path (e.g. target-services/<service>/<file>)"
       }
     },
     required: ["file_path"]
   },
   execute: async ({ file_path }: { file_path: string }) => {
-    try {
-      const fullPath = path.resolve(process.cwd(), file_path);
-      const content = fs.readFileSync(fullPath, 'utf8');
-      return {
-        file_path,
-        status: EXECUTION_STATUS.SUCCESS,
-        lines: content.split('\n').length,
-        content
-      };
-    } catch (err: any) {
-      return {
-        file_path,
-        status: EXECUTION_STATUS.FAILED,
-        error: `Failed to read file ${file_path}: ${err.message}`
-      };
-    }
+    return providerRegistry.get(PROVIDER_CATEGORIES.SOURCE_CONTROL).readSourceCode(file_path);
   }
 };

@@ -22,10 +22,11 @@ export class IncidentContract {
     symptoms?: Symptom[];
     context?: Record<string, any>;
   }): Incident {
+    const errorRateVal = context.error_rate !== undefined ? Number(context.error_rate) : 38.0;
     const defaultSymptoms: Symptom[] = [
       {
         type: "error_rate",
-        value: 38.0,
+        value: errorRateVal,
         threshold: 5.0,
         unit: "percent"
       }
@@ -52,15 +53,19 @@ export class IncidentContract {
     alert_name?: string;
     description?: string;
     severity?: any;
+    error_rate?: number;
+    symptoms?: Symptom[];
     timestamp?: string;
   }): Incident {
     return this.create({
       id: alert.id,
       serviceName: alert.service,
       severity: alert.severity,
+      symptoms: alert.symptoms || [],
       context: {
         alert_name: alert.alert_name,
         description: alert.description,
+        error_rate: alert.error_rate,
         timestamp: alert.timestamp
       }
     });

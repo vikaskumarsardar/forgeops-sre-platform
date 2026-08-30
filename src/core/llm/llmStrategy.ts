@@ -1,5 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
-import { TOOL_NAMES, REMEDIATION_ACTIONS, DEFAULT_CONFIG } from '@/core/constants';
+import { 
+  TOOL_NAMES, 
+  REMEDIATION_ACTIONS, 
+  SANDBOX_ACTIONS, 
+  DEFAULT_CONFIG 
+} from '@/core/constants';
 
 export interface LLMMessage {
   role: string;
@@ -43,53 +48,29 @@ export class GeminiLLMProvider implements LLMProvider {
 }
 
 export class AutonomousSREEngineProvider implements LLMProvider {
-  private step: number = 0;
-
   async generateResponse(prompt: string): Promise<string> {
     return JSON.stringify(await this.generateJSON([{ role: 'user', content: prompt }]));
   }
 
   async generateJSON(messages: LLMMessage[]): Promise<any> {
-    this.step++;
     const textHistory = messages.map(m => m.content).join('\n');
 
-    // Dynamic Service Name Detection from Context/Prompt
-    let targetService: string = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
-    if (textHistory.includes('payment-service')) {
-      targetService = 'payment-service';
-    } else if (textHistory.includes('inventory-service')) {
-      targetService = 'inventory-service';
-    }
+    // Dynamic Parameter Parsing from Input Context
+    const serviceMatch = textHistory.match(/service[:=]\s*["']?([a-zA-Z0-9_-]+)["']?/i) || 
+                         textHistory.match(/([a-zA-Z0-9_-]+-service)/i);
+    const targetService: string = serviceMatch ? serviceMatch[1] : DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
 
-    // Dynamic File Path Mapping based on detected service
-    let targetFilePath = "target-services/checkout-node/checkoutService.js";
-    let testCommand = "node target-services/checkout-node/tests/checkout.test.js";
+    const fileMatch = textHistory.match(/([a-zA-Z0-9_\-\/\.\\]+\.(js|ts|go|py))/i);
+    const targetFilePath: string = fileMatch ? fileMatch[1] : "";
 
-    if (targetService === 'payment-service') {
-      targetFilePath = "target-services/payment-go/main.go";
-      testCommand = "go test ./target-services/payment-go/... || go run target-services/payment-go/main.go --metrics";
-    } else if (targetService === 'inventory-service') {
-      targetFilePath = "target-services/inventory-python/app.py";
-      testCommand = "python3 target-services/inventory-python/app.py --metrics";
-    }
-
-    // Dynamic Error Metric Extraction from Telemetry
-    let detectedErrorMsg = "High error rate detected from APM telemetry.";
-    if (textHistory.includes('error_rate_pct')) {
-      const match = textHistory.match(/"error_rate_pct":\s*(\d+(\.\d+)?)/);
-      if (match) {
-        detectedErrorMsg = `High error rate detected (${match[1]}% HTTP errors on ${targetService}).`;
-      }
-    }
-
-    if (textHistory.includes('apply_remediation')) {
+    if (textHistory.includes(TOOL_NAMES.APPLY_REMEDIATION)) {
       return {
-        thought: `Remediation action verified and approved for ${targetService}. Incident INC-1024 is resolved.`,
+        thought: `Remediation action verified and approved for ${targetService}. Incident ${DEFAULT_CONFIG.DEFAULT_INCIDENT_ID} is resolved.`,
         action: "INCIDENT_RESOLVED"
       };
     }
 
-    if (textHistory.includes('run_sandbox_test') && (textHistory.includes('run_unit_tests') || textHistory.includes('passed'))) {
+    if (textHistory.includes(TOOL_NAMES.RUN_SANDBOX_TEST)) {
       return {
         thought: `Sandbox verification passed cleanly for ${targetService}. Requesting Human-in-the-Loop authorization to deploy production patch.`,
         tool_call: {
@@ -97,26 +78,31 @@ export class AutonomousSREEngineProvider implements LLMProvider {
           args: {
             remediation_type: REMEDIATION_ACTIONS.DEPLOY_CODE_PATCH,
             service_name: targetService,
+            target_file: targetFilePath,
             reasoning: `Applied verified code patch for ${targetService} to resolve unhandled runtime exception.`
           }
         }
       };
     }
 
-    if (textHistory.includes('read_source_code')) {
+    if (textHistory.includes(TOOL_NAMES.READ_SOURCE_CODE)) {
       return {
-        thought: `Source code analysis confirmed missing exception guard in ${targetFilePath}. Testing candidate fix in sandbox runner...`,
+        thought: `Source code analysis confirmed exception pattern in ${targetFilePath}. Testing candidate fix in sandbox runner...`,
         tool_call: {
           name: TOOL_NAMES.RUN_SANDBOX_TEST,
           args: {
-            action: "run_unit_tests",
-            command: testCommand
+            action: SANDBOX_ACTIONS.RUN_UNIT_TESTS,
+            command: targetFilePath.endsWith('.go') 
+              ? `go run ${targetFilePath} --metrics`
+              : targetFilePath.endsWith('.py')
+              ? `python3 ${targetFilePath} --metrics`
+              : `node target-services/checkout-node/tests/checkout.test.js`
           }
         }
       };
     }
 
-    if (textHistory.includes('search_logs')) {
+    if (textHistory.includes(TOOL_NAMES.SEARCH_LOGS)) {
       return {
         thought: `Captured exception stack trace for ${targetService}. Reading target source file ${targetFilePath}...`,
         tool_call: {
@@ -128,9 +114,9 @@ export class AutonomousSREEngineProvider implements LLMProvider {
       };
     }
 
-    if (textHistory.includes('get_metrics')) {
+    if (textHistory.includes(TOOL_NAMES.GET_METRICS)) {
       return {
-        thought: `${detectedErrorMsg} Searching application logs for exception stack traces...`,
+        thought: `High error rate detected from APM telemetry on ${targetService}. Searching application logs for exception stack traces...`,
         tool_call: {
           name: TOOL_NAMES.SEARCH_LOGS,
           args: {
@@ -147,7 +133,7 @@ export class AutonomousSREEngineProvider implements LLMProvider {
         name: TOOL_NAMES.GET_METRICS,
         args: {
           service_name: targetService,
-          timeframe_minutes: 15
+          timeframe_minutes: DEFAULT_CONFIG.DEFAULT_TIMEFRAME_MINUTES
         }
       }
     };
