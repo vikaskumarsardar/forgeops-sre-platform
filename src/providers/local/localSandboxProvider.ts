@@ -68,7 +68,9 @@ export class LocalSandboxProvider implements SandboxProvider {
     }
 
     const targetServicePath = servicePath || '';
-    const resolvedServicePath = path.resolve(process.cwd(), targetServicePath);
+    const resolvedServicePath = path.isAbsolute(targetServicePath)
+      ? targetServicePath
+      : path.resolve(process.cwd(), targetServicePath);
     const jsonPayload = JSON.stringify(payload).replace(/"/g, '\\"');
 
     let sandboxTelemetry = {

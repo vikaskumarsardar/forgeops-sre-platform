@@ -104,7 +104,7 @@ export class LogService {
 
     if (isLogStreamEmpty && isErrorSeveritySearch) {
       // 100% Dynamic Filesystem Discovery (Zero Hardcoded Service Strings)
-      const targetDir = path.resolve(process.cwd(), 'target-services');
+      const targetDir = process.env.TARGET_SERVICES_DIR || path.resolve(process.cwd(), 'target-services');
       let absServicePath = '';
 
       if (fs.existsSync(targetDir)) {

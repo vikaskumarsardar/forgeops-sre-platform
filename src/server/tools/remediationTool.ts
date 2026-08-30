@@ -111,7 +111,7 @@ export default {
     }
 
     const relPath = target_file;
-    const absPath = path.resolve(process.cwd(), relPath);
+    const absPath = path.isAbsolute(target_file) ? target_file : path.resolve(process.cwd(), target_file);
 
     if (isDeployCodePatchAction) {
       try {

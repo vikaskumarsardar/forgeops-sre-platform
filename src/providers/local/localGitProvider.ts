@@ -78,7 +78,9 @@ export class LocalGitProvider implements SourceControlProvider {
   }
 
   async readSourceCode(filePath: string): Promise<any> {
-    const fullPath = path.resolve(process.cwd(), filePath);
+    const fullPath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(process.cwd(), filePath);
     const content = fs.readFileSync(fullPath, 'utf8');
     return {
       file_path: filePath,
