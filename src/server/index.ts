@@ -9,7 +9,9 @@ import {
   SEVERITIES, 
   INCIDENT_STATES,
   APPROVAL_DECISIONS,
-  PROVIDER_CATEGORIES
+  PROVIDER_CATEGORIES,
+  SESSION_STATES,
+  SERVICE_STATUS
 } from '@/core/constants';
 
 const app = express();
@@ -72,15 +74,18 @@ app.get('/api/status', async (req: Request, res: Response) => {
     const metrics = await observability.getMetrics(targetService, 15);
     const deployment = await providerRegistry.get('deployment').healthCheck(targetService);
 
+    const isIncidentActive = harness.sessionState === SESSION_STATES.INVESTIGATING || 
+                             harness.sessionState === SESSION_STATES.WAITING_FOR_APPROVAL;
+
     res.json({
       service: targetService,
       service_version: "1.0.0",
       agent_state: harness.sessionState,
       active_mode: "prometheus",
       metrics: {
-        status: deployment.healthy ? "OPERATIONAL" : "DEGRADED",
-        error_rate_pct: deployment.healthy ? 0.0 : 38.2,
-        p95_latency_ms: deployment.healthy ? 25 : 2850,
+        status: isIncidentActive ? SERVICE_STATUS.DEGRADED : SERVICE_STATUS.HEALTHY,
+        error_rate_pct: isIncidentActive ? 38.2 : 0.0,
+        p95_latency_ms: isIncidentActive ? 2850 : 25,
         requests_per_sec: 142.5,
         raw: metrics
       },

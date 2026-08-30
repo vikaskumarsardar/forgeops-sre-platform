@@ -3,8 +3,8 @@
 import { SERVICE_STATUS, SESSION_STATES } from '@/core/constants';
 
 export default function IncidentHeader({ statusData, onTriggerOutage, onStartAgent, isRunning }) {
-  const metrics = statusData?.metrics?.metrics || {};
-  const isDegraded = statusData?.metrics?.status === SERVICE_STATUS.DEGRADED;
+  const metrics = statusData?.metrics || {};
+  const isDegraded = metrics.status === SERVICE_STATUS.DEGRADED || metrics.error_rate_pct > 0;
   const agentState = statusData?.agent_state || SESSION_STATES.IDLE;
 
   return (
