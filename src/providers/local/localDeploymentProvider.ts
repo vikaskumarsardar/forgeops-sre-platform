@@ -37,7 +37,8 @@ export class LocalDeploymentProvider implements DeploymentProvider {
 
   async rollback(targetService: string = DEFAULT_CONFIG.DEFAULT_SERVICE_NAME): Promise<any> {
     try {
-      const stdout = execSync(`git checkout HEAD~1 -- target-services/`, { encoding: 'utf8', cwd: process.cwd() });
+      const targetDir = process.env.TARGET_SERVICES_DIR || 'target-services/';
+      const stdout = execSync(`git checkout HEAD~1 -- ${targetDir}`, { encoding: 'utf8', cwd: process.cwd() });
       return {
         status: EXECUTION_STATUS.SUCCESS,
         provider: "Local Git Rollback",
