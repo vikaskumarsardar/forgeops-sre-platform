@@ -5,10 +5,7 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import fs from 'fs';
-import path from 'path';
 import harness from './agent/harness';
-import metricsService from '@/providers/local/metricsService';
 import logService from '@/providers/local/logService';
 import providerRegistry from '@/core/providerRegistry';
 import { IncidentContract } from '@/core/incident';
@@ -16,7 +13,6 @@ import {
   DEFAULT_CONFIG, 
   API_PATHS, 
   SEVERITIES, 
-  HTTP_METHODS,
   INCIDENT_STATES,
   APPROVAL_DECISIONS
 } from '@/core/constants';
@@ -113,14 +109,6 @@ app.get('/api/status', async (req: Request, res: Response) => {
 // Outage Trigger Handler (Decoupled - Dynamic Microservice Target)
 const triggerIncidentHandler = async (req: Request, res: Response) => {
   const targetService = req.body?.service || (req.query.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
-
-  // 1. Reset target service code to introduce bug dynamically
-  let targetFile = path.resolve(process.cwd(), 'target-services/checkout-node/checkoutService.js');
-  if (targetService === 'payment-service') {
-    targetFile = path.resolve(process.cwd(), 'target-services/payment-go/main.go');
-  } else if (targetService === 'inventory-service') {
-    targetFile = path.resolve(process.cwd(), 'target-services/inventory-python/app.py');
-  }
 
   logService.clearLogs();
 

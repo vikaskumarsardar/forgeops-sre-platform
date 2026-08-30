@@ -8,7 +8,6 @@ import { execSync } from 'child_process';
 import { 
   SEVERITIES, 
   HTTP_METHODS, 
-  API_PATHS, 
   DEFAULT_CONFIG 
 } from '@/core/constants';
 

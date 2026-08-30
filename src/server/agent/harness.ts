@@ -342,7 +342,7 @@ export class TrueForgeHarness {
     }
 
     const { toolToCall, toolArgs } = this.pendingApproval;
-    const isApprovedDecision = decision === APPROVAL_DECISIONS.APPROVE || decision === 'APPROVE';
+    const isApprovedDecision = decision === APPROVAL_DECISIONS.APPROVE;
     const toolImpl = toolsRegistry[toolToCall];
 
     if (isApprovedDecision) {
