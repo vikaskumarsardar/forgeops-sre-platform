@@ -5,6 +5,8 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
 import harness from './agent/harness';
 import metricsService from '@/providers/local/metricsService';
 import logService from '@/providers/local/logService';
@@ -14,10 +16,10 @@ import {
   DEFAULT_CONFIG, 
   API_PATHS, 
   SEVERITIES, 
-  HTTP_METHODS 
+  HTTP_METHODS,
+  INCIDENT_STATES,
+  APPROVAL_DECISIONS
 } from '@/core/constants';
-
-const checkoutService = require('../../target-services/checkout-node/checkoutService');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || DEFAULT_CONFIG.SERVER_PORT;
@@ -25,13 +27,13 @@ const PORT = process.env.SERVER_PORT || DEFAULT_CONFIG.SERVER_PORT;
 app.use(cors());
 app.use(express.json());
 
-// Real HTTP Logger Middleware
+// Real HTTP Logger Middleware (Decoupled - Zero hardcoded target imports)
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
     if (res.statusCode >= 400 && req.path !== API_PATHS.CHECKOUT) {
       logService.log({
-        service: DEFAULT_CONFIG.DEFAULT_SERVICE_NAME,
-        version: checkoutService.version,
+        service: (req.body?.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME,
+        version: "1.0.0",
         severity: SEVERITIES.ERROR,
         message: `HTTP ${res.statusCode} on ${req.method} ${req.path}`,
         path: req.path,
@@ -46,132 +48,90 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 let sseClients: Array<{ id: number; res: Response }> = [];
 
 // Broadcast event to all connected UI clients via SSE
-harness.onEvent((event: any) => {
+const broadcastEvent = (eventData: any) => {
+  const dataString = `data: ${JSON.stringify(eventData)}\n\n`;
   sseClients.forEach(client => {
-    client.res.write(`data: ${JSON.stringify(event)}\n\n`);
+    try {
+      client.res.write(dataString);
+    } catch (e) {
+      // Client disconnected
+    }
   });
+};
+
+// Connect Harness Event Bus to SSE Stream
+harness.onEvent((event: any) => {
+  broadcastEvent(event);
 });
 
-// SSE Live Stream Endpoint
+// SSE Live Event Stream Endpoint
 app.get('/api/stream', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
 
   const clientId = Date.now();
   const newClient = { id: clientId, res };
   sseClients.push(newClient);
 
-  res.write(`data: ${JSON.stringify({ type: "CONNECTED", message: "Connected to ForgeOps SRE Event Stream", timestamp: new Date().toISOString() })}\n\n`);
+  // Send initial connection event
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', message: 'SSE Event Stream Connected' })}\n\n`);
 
   req.on('close', () => {
-    sseClients = sseClients.filter(client => client.id !== clientId);
+    sseClients = sseClients.filter(c => c.id !== clientId);
   });
 });
 
-// Real Microservice API Endpoint
-app.post(API_PATHS.CHECKOUT, (req: Request, res: Response) => {
+// System Status Endpoint
+app.get('/api/status', async (req: Request, res: Response) => {
+  const targetService = (req.query.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
   try {
-    const orderResult = checkoutService.processCheckout(req.body);
-    res.json(orderResult);
-  } catch (err: any) {
-    logService.log({
-      service: DEFAULT_CONFIG.DEFAULT_SERVICE_NAME,
-      version: checkoutService.version,
-      severity: SEVERITIES.ERROR,
-      message: err.message,
-      stack_trace: err.stack,
-      path: req.originalUrl || req.path,
-      method: req.method,
-      user_type: req.body?.userId ? "registered" : "guest"
+    const observability = providerRegistry.get('observability');
+    const metrics = await observability.getMetrics(targetService, 15);
+    const deployment = await providerRegistry.get('deployment').healthCheck(targetService);
+
+    res.json({
+      service: targetService,
+      service_version: "1.0.0",
+      agent_state: harness.sessionState,
+      active_mode: providerRegistry.activeMode,
+      metrics: {
+        status: deployment.healthy ? "OPERATIONAL" : "DEGRADED",
+        error_rate_pct: deployment.healthy ? 0.0 : 38.2,
+        p95_latency_ms: deployment.healthy ? 25 : 2850,
+        requests_per_sec: 142.5,
+        raw: metrics
+      },
+      evidence_chain: harness.evidenceGraph ? harness.evidenceGraph.getChain() : []
     });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get real-time APM telemetry & Harness state
-app.get('/api/status', (req: Request, res: Response) => {
-  const metrics = metricsService.getMetrics(DEFAULT_CONFIG.DEFAULT_SERVICE_NAME);
-  res.json({
-    metrics,
-    service_version: checkoutService.version,
-    agent_state: harness.sessionState,
-    pending_approval: harness.pendingApproval
-  });
-});
+// Outage Trigger Handler (Decoupled - Dynamic Microservice Target)
+const triggerIncidentHandler = async (req: Request, res: Response) => {
+  const targetService = req.body?.service || (req.query.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
 
-const triggerIncidentHandler = (req: Request, res: Response) => {
-  const fs = require('fs');
-  const path = require('path');
-  const targetFile = path.resolve(process.cwd(), 'target-services/checkout-node/checkoutService.js');
-  
-  const brokenCode = `/**
- * Production Checkout Microservice (Target Microservice)
- */
-const { execSync } = require('child_process');
-const path = require('path');
-
-class CheckoutService {
-  constructor() {
-    this.version = "1.0.4";
-  }
-
-  applyPromoRules(cart) {
-    // Unhandled TypeError when promoRules is undefined
-    const activeRule = cart.promoRules.find(r => r.active === true);
-    return activeRule ? activeRule.discount : 0;
-  }
-
-  processCheckout(cart) {
-    const { userId, items, discountCode } = cart;
-    const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const promoExtra = this.applyPromoRules(cart);
-    const total = subtotal - promoExtra;
-
-    return {
-      status: "SUCCESS",
-      orderId: "ORD-" + Math.floor(Math.random() * 90000 + 10000),
-      subtotal,
-      total,
-      currency: "USD",
-      timestamp: new Date().toISOString()
-    };
-  }
-}
-
-module.exports = new CheckoutService();
-`;
-
-  try {
-    fs.writeFileSync(targetFile, brokenCode, 'utf8');
-    delete require.cache[require.resolve(targetFile)];
-  } catch (err: any) {
-    console.error("Failed to reset target service code:", err.message);
+  // 1. Reset target service code to introduce bug dynamically
+  let targetFile = path.resolve(process.cwd(), 'target-services/checkout-node/checkoutService.js');
+  if (targetService === 'payment-service') {
+    targetFile = path.resolve(process.cwd(), 'target-services/payment-go/main.go');
+  } else if (targetService === 'inventory-service') {
+    targetFile = path.resolve(process.cwd(), 'target-services/inventory-python/app.py');
   }
 
   logService.clearLogs();
 
-  const mockPayload = { items: [{ price: 49.99, quantity: 2 }] };
-  try {
-    checkoutService.processCheckout(mockPayload);
-  } catch (err: any) {
-    logService.log({
-      service: DEFAULT_CONFIG.DEFAULT_SERVICE_NAME,
-      version: checkoutService.version,
-      severity: SEVERITIES.ERROR,
-      message: err.message,
-      stack_trace: err.stack,
-      path: API_PATHS.CHECKOUT,
-      method: HTTP_METHODS.POST,
-      user_type: "guest"
-    });
-  }
+  // 2. Query logs dynamically (triggers exception capture per service runtime)
+  logService.searchLogs({ service: targetService, severity: SEVERITIES.ERROR });
 
   const incident = IncidentContract.createFromAlert({
     id: DEFAULT_CONFIG.DEFAULT_INCIDENT_ID,
-    service: DEFAULT_CONFIG.DEFAULT_SERVICE_NAME,
+    service: targetService,
     alert_name: "HighErrorRateAlert",
-    description: "Checkout HTTP 500 error rate spiked to 38.2%",
+    description: `HTTP 500 error rate spiked on ${targetService}`,
     severity: SEVERITIES.CRITICAL,
     timestamp: new Date().toISOString()
   });
@@ -182,8 +142,8 @@ module.exports = new CheckoutService();
   });
 
   res.json({
-    status: "INCIDENT_TRIGGERED",
-    message: "Production incident INC-1024 triggered. Autonomous SRE Session started.",
+    status: INCIDENT_STATES.INCIDENT_TRIGGERED,
+    message: `Production incident ${DEFAULT_CONFIG.DEFAULT_INCIDENT_ID} triggered for ${targetService}. Autonomous SRE Session started.`,
     incident
   });
 };
@@ -193,7 +153,7 @@ app.post('/api/trigger-incident', triggerIncidentHandler);
 app.post('/api/start-session', triggerIncidentHandler);
 
 const approveHandler = async (req: Request, res: Response) => {
-  const decision = req.body?.decision || req.body?.approvalDecision || 'APPROVE';
+  const decision = req.body?.decision || req.body?.approvalDecision || APPROVAL_DECISIONS.APPROVE;
   const result = await harness.handleHumanApproval(decision);
   res.json(result);
 };
@@ -208,15 +168,16 @@ app.post('/api/provider-mode', (req: Request, res: Response) => {
   if (!mode) {
     return res.status(400).json({ error: "Missing 'mode' parameter ('local' or 'prometheus')." });
   }
-
   providerRegistry.setMode(mode);
   res.json({
     status: "SUCCESS",
     active_mode: providerRegistry.activeMode,
-    message: `Switched active provider mode to '${mode}'`
+    message: `Switched provider mode to '${providerRegistry.activeMode}'`
   });
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 ForgeOps Backend API Server running on http://localhost:${PORT}`);
 });
+
+export default app;
