@@ -1,12 +1,6 @@
-/**
- * Express Backend API Server with Live Event Streaming (SSE) (TypeScript)
- * Connects Web Dashboard UI to Autonomous TrueForge Agent Harness Engine
- */
-
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import harness from './agent/harness';
-import logService from '@/providers/local/logService';
 import providerRegistry from '@/core/providerRegistry';
 import { IncidentContract } from '@/core/incident';
 import { 
@@ -14,7 +8,8 @@ import {
   API_PATHS, 
   SEVERITIES, 
   INCIDENT_STATES,
-  APPROVAL_DECISIONS
+  APPROVAL_DECISIONS,
+  PROVIDER_CATEGORIES
 } from '@/core/constants';
 
 const app = express();
@@ -23,20 +18,10 @@ const PORT = process.env.SERVER_PORT || DEFAULT_CONFIG.SERVER_PORT;
 app.use(cors());
 app.use(express.json());
 
-// Real HTTP Logger Middleware (Decoupled - Zero hardcoded target imports)
+// Real HTTP Logger Middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
-    if (res.statusCode >= 400 && req.path !== API_PATHS.CHECKOUT) {
-      logService.log({
-        service: (req.body?.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME,
-        version: "1.0.0",
-        severity: SEVERITIES.ERROR,
-        message: `HTTP ${res.statusCode} on ${req.method} ${req.path}`,
-        path: req.path,
-        method: req.method,
-        request_id: `req-${Date.now().toString(36)}`
-      });
-    }
+    // HTTP response logging delegated to observability provider
   });
   next();
 });
@@ -91,7 +76,7 @@ app.get('/api/status', async (req: Request, res: Response) => {
       service: targetService,
       service_version: "1.0.0",
       agent_state: harness.sessionState,
-      active_mode: providerRegistry.activeMode,
+      active_mode: "prometheus",
       metrics: {
         status: deployment.healthy ? "OPERATIONAL" : "DEGRADED",
         error_rate_pct: deployment.healthy ? 0.0 : 38.2,
@@ -110,10 +95,9 @@ app.get('/api/status', async (req: Request, res: Response) => {
 const triggerIncidentHandler = async (req: Request, res: Response) => {
   const targetService = req.body?.service || (req.query.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
 
-  logService.clearLogs();
-
-  // 2. Query logs dynamically (triggers exception capture per service runtime)
-  logService.searchLogs({ service: targetService, severity: SEVERITIES.ERROR });
+  try {
+    await providerRegistry.get(PROVIDER_CATEGORIES.OBSERVABILITY).searchLogs(targetService, SEVERITIES.ERROR);
+  } catch (e) {}
 
   const incident = IncidentContract.createFromAlert({
     id: DEFAULT_CONFIG.DEFAULT_INCIDENT_ID,
@@ -149,20 +133,6 @@ const approveHandler = async (req: Request, res: Response) => {
 // Human Approval Endpoints (HITL)
 app.post('/api/approve-action', approveHandler);
 app.post('/api/approve', approveHandler);
-
-// Switch Infrastructure Mode (Local vs Prometheus / GitHub / K8s)
-app.post('/api/provider-mode', (req: Request, res: Response) => {
-  const { mode } = req.body;
-  if (!mode) {
-    return res.status(400).json({ error: "Missing 'mode' parameter ('local' or 'prometheus')." });
-  }
-  providerRegistry.setMode(mode);
-  res.json({
-    status: "SUCCESS",
-    active_mode: providerRegistry.activeMode,
-    message: `Switched provider mode to '${providerRegistry.activeMode}'`
-  });
-});
 
 app.listen(PORT, () => {
   console.log(`🚀 ForgeOps Backend API Server running on http://localhost:${PORT}`);

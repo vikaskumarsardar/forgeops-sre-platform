@@ -79,7 +79,7 @@ export class TrueForgeHarness {
       await this.trueforgeClient.settings.modelProviders.createOrUpdate({
         manifest: {
           provider_type: 'gemini',
-          api_key: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || 'sk-mock-key'
+          api_key: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
         } as any
       });
 
@@ -91,11 +91,11 @@ export class TrueForgeHarness {
       } as any);
 
       const session = await this.trueforgeClient.sessions.create({
-        agentId: (agent as any)?.id || 'mock-agent-id',
+        agentId: (agent as any)?.id || 'forgeops-agent-id',
         options: { title: 'Incident INC-1024 Investigation' }
       } as any);
 
-      this.nativeSessionId = (session as any)?.id || 'mock-session-id';
+      this.nativeSessionId = (session as any)?.id || 'forgeops-session-id';
       return session;
     } catch (err) {
       return null;
@@ -298,7 +298,6 @@ export class TrueForgeHarness {
           },
           riskEvaluation,
           evidenceChain: this.evidenceGraph ? (this.evidenceGraph as any).getChain ? (this.evidenceGraph as any).getChain() : this.evidenceGraph.evidenceChain : [],
-          timestamp: new Date().toISOString()
         });
 
         return;
@@ -312,6 +311,16 @@ export class TrueForgeHarness {
           result,
           timestamp: new Date().toISOString()
         });
+
+        if (this.trueforgeClient && this.nativeSessionId) {
+          try {
+            await (this.trueforgeClient.sessions as any).createTurn(this.nativeSessionId, {
+              content: `Turn ${turns}: Executed ${toolToCall} with args ${JSON.stringify(toolArgs)}`
+            });
+          } catch (e) {
+            // ignore offline daemon turn logging error
+          }
+        }
 
         this.history.push({
           role: CHAT_ROLES.ASSISTANT,

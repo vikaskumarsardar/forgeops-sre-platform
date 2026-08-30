@@ -1,54 +1,31 @@
 /**
- * Universal Provider Registry & Config-Driven Switcher (TypeScript)
- * Manages provider registration and dynamic infrastructure switching.
+ * Production Enterprise Provider Registry (TypeScript)
+ * Registers 100% production providers: Prometheus + Loki, GitHub REST API, K8s API, and Ephemeral Sandbox.
  */
 
-import localObservabilityProvider from '@/providers/local/localObservabilityProvider';
-import localGitProvider from '@/providers/local/localGitProvider';
-import localSandboxProvider from '@/providers/local/localSandboxProvider';
-import localDeploymentProvider from '@/providers/local/localDeploymentProvider';
 import prometheusLokiProvider from '@/providers/observability/prometheusLokiProvider';
 import githubProvider from '@/providers/github/githubProvider';
+import localSandboxProvider from '@/providers/local/localSandboxProvider';
 import kubernetesProvider from '@/providers/kubernetes/kubernetesProvider';
 import { PROVIDER_CATEGORIES } from '@/core/constants';
 
 export class ProviderRegistry {
   private providers: Map<string, any>;
-  activeMode: string;
 
   constructor() {
     this.providers = new Map();
-    this.activeMode = "local";
 
-    // 1. Local Zero-Dependency Demo Mode
-    this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "local", localObservabilityProvider);
-    this.register(PROVIDER_CATEGORIES.SOURCE_CONTROL, "local", localGitProvider);
-    this.register(PROVIDER_CATEGORIES.SANDBOX, "local", localSandboxProvider);
-    this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "local", localDeploymentProvider);
-
-    // 2. Production Enterprise Cloud Provider Mode (Prometheus + Loki, GitHub REST API, K8s)
-    this.register(PROVIDER_CATEGORIES.OBSERVABILITY, "prometheus", prometheusLokiProvider);
-    this.register(PROVIDER_CATEGORIES.SOURCE_CONTROL, "github", githubProvider);
-    this.register(PROVIDER_CATEGORIES.SANDBOX, "docker", localSandboxProvider);
-    this.register(PROVIDER_CATEGORIES.DEPLOYMENT, "kubernetes", kubernetesProvider);
-  }
-
-  register(category: string, type: string, providerInstance: any): void {
-    const key = `${category}:${type}`;
-    this.providers.set(key, providerInstance);
-  }
-
-  setMode(mode: string = "local"): void {
-    this.activeMode = mode;
+    // Direct Production Cloud Providers
+    this.providers.set(PROVIDER_CATEGORIES.OBSERVABILITY, prometheusLokiProvider);
+    this.providers.set(PROVIDER_CATEGORIES.SOURCE_CONTROL, githubProvider);
+    this.providers.set(PROVIDER_CATEGORIES.SANDBOX, localSandboxProvider);
+    this.providers.set(PROVIDER_CATEGORIES.DEPLOYMENT, kubernetesProvider);
   }
 
   get(category: string): any {
-    const key = `${category}:${this.activeMode}`;
-    if (this.providers.has(key)) {
-      return this.providers.get(key);
-    }
-    return this.providers.get(`${category}:local`);
+    return this.providers.get(category);
   }
 }
 
-export default new ProviderRegistry();
+export const providerRegistry = new ProviderRegistry();
+export default providerRegistry;

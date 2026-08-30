@@ -28,7 +28,7 @@ export default {
       },
       service_path: {
         type: "string",
-        description: "Relative service module path to load (e.g. 'target-services/checkout-node/checkoutService.js')"
+        description: "Target service module file path"
       }
     },
     required: ["action"]

@@ -53,24 +53,30 @@ export class AutonomousSREEngineProvider implements LLMProvider {
   }
 
   async generateJSON(messages: LLMMessage[]): Promise<any> {
-    const textHistory = messages.map(m => m.content).join('\n');
+    const fullText = messages.map(m => m.content).join('\n');
+    const conversationHistory = messages
+      .filter(m => m.role !== 'system')
+      .map(m => m.content)
+      .join('\n');
 
     // Dynamic Parameter Parsing from Input Context
-    const serviceMatch = textHistory.match(/service[:=]\s*["']?([a-zA-Z0-9_-]+)["']?/i) || 
-                         textHistory.match(/([a-zA-Z0-9_-]+-service)/i);
+    const serviceMatch = fullText.match(/service[:=]\s*["']?([a-zA-Z0-9_-]+)["']?/i) || 
+                         fullText.match(/([a-zA-Z0-9_-]+-service)/i);
     const targetService: string = serviceMatch ? serviceMatch[1] : DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
 
-    const fileMatch = textHistory.match(/([a-zA-Z0-9_\-\/\.\\]+\.(js|ts|go|py))/i);
-    const targetFilePath: string = fileMatch ? fileMatch[1] : "";
+    const explicitFileMatch = fullText.match(/([a-zA-Z0-9_\-\/\.\\]+\.(js|ts|go|py|cs|rs|rb))/i);
+    const targetFilePath = (explicitFileMatch && !explicitFileMatch[1].includes("prompt"))
+      ? explicitFileMatch[1]
+      : `${targetService}`;
 
-    if (textHistory.includes(TOOL_NAMES.APPLY_REMEDIATION)) {
+    if (conversationHistory.includes(TOOL_NAMES.APPLY_REMEDIATION)) {
       return {
         thought: `Remediation action verified and approved for ${targetService}. Incident ${DEFAULT_CONFIG.DEFAULT_INCIDENT_ID} is resolved.`,
         action: "INCIDENT_RESOLVED"
       };
     }
 
-    if (textHistory.includes(TOOL_NAMES.RUN_SANDBOX_TEST)) {
+    if (conversationHistory.includes(TOOL_NAMES.RUN_SANDBOX_TEST)) {
       return {
         thought: `Sandbox verification passed cleanly for ${targetService}. Requesting Human-in-the-Loop authorization to deploy production patch.`,
         tool_call: {
@@ -85,24 +91,21 @@ export class AutonomousSREEngineProvider implements LLMProvider {
       };
     }
 
-    if (textHistory.includes(TOOL_NAMES.READ_SOURCE_CODE)) {
+    if (conversationHistory.includes(TOOL_NAMES.READ_SOURCE_CODE)) {
       return {
         thought: `Source code analysis confirmed exception pattern in ${targetFilePath}. Testing candidate fix in sandbox runner...`,
         tool_call: {
           name: TOOL_NAMES.RUN_SANDBOX_TEST,
           args: {
             action: SANDBOX_ACTIONS.RUN_UNIT_TESTS,
-            command: targetFilePath.endsWith('.go') 
-              ? `go run ${targetFilePath} --metrics`
-              : targetFilePath.endsWith('.py')
-              ? `python3 ${targetFilePath} --metrics`
-              : `node target-services/checkout-node/tests/checkout.test.js`
+            payload: { items: [{ price: 49.99, quantity: 1 }] },
+            servicePath: targetFilePath
           }
         }
       };
     }
 
-    if (textHistory.includes(TOOL_NAMES.SEARCH_LOGS)) {
+    if (conversationHistory.includes(TOOL_NAMES.SEARCH_LOGS)) {
       return {
         thought: `Captured exception stack trace for ${targetService}. Reading target source file ${targetFilePath}...`,
         tool_call: {
@@ -114,7 +117,7 @@ export class AutonomousSREEngineProvider implements LLMProvider {
       };
     }
 
-    if (textHistory.includes(TOOL_NAMES.GET_METRICS)) {
+    if (conversationHistory.includes(TOOL_NAMES.GET_METRICS)) {
       return {
         thought: `High error rate detected from APM telemetry on ${targetService}. Searching application logs for exception stack traces...`,
         tool_call: {

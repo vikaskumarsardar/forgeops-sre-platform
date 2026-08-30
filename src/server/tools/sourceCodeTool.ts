@@ -16,7 +16,7 @@ export default {
     properties: {
       file_path: {
         type: "string",
-        description: "Relative file path (e.g. target-services/<service>/<file>)"
+        description: "Target source code file path"
       }
     },
     required: ["file_path"]
