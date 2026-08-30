@@ -126,8 +126,7 @@ export class KubernetesDeploymentProvider implements DeploymentProvider {
           healthy: true,
           status: SERVICE_STATUS.HEALTHY,
           errorRate: 0.0,
-          latencyP95: 25,
-          provider: "Cloud Container Service"
+          latencyP95: 25
         };
       }
     }
