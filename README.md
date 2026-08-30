@@ -51,23 +51,24 @@
 ## ✨ Key Features & Technical Highlights
 
 * **🧠 Pluggable Strategy Pattern Architecture (`llmStrategy.ts`):** Supports Gemini 2.5 Flash (`GeminiLLMProvider`), local Ollama (`OllamaLLMProvider`), and deterministic fallback (`AutonomousSREEngineProvider`).
-* **📡 Real Prometheus PromQL & Loki Telemetry (`prometheusProvider.ts`):** Queries Prometheus REST API (`:9090`) with live PromQL and Grafana Loki log query API (`:3100`). Target microservices export standard plain-text exposition metrics via `prom-client`.
+* **📡 Real Prometheus PromQL & Loki Telemetry (`prometheusLokiProvider.ts`):** Queries Prometheus REST API (`:9090`) with live PromQL and Grafana Loki log query API (`:3100`). Target microservices export standard plain-text exposition metrics via `prom-client`.
+* **📁 100% Path-Agnostic External Target Support (`TARGET_SERVICES_DIR`):** Supports debugging microservices located anywhere on local disk or external repositories outside the platform directory.
 * **🛡️ Human-in-the-Loop (HITL) Safety Gate (`policy.ts`):** Classifies actions into risk tiers (`LOW` vs `HIGH`/`CRITICAL`). Halts execution and pops up the UI/CLI approval modal before applying code patches or rolling back deployments.
 * **🔄 Closed-Loop Auto-Rollback Safeguard (`harness.ts`):** Evaluates post-patch error rates in APM. If production metrics stay degraded, ForgeOps automatically executes `kubectl rollout undo` to protect cluster health.
-* **🧪 Multi-Language Sandbox Reproduction (`localSandbox.ts`):** Empirically proves bugs in **10-15ms** by measuring real process CPU delta, heap memory usage, and execution latency.
+* **🧪 Multi-Language Sandbox Reproduction (`localSandboxProvider.ts`):** Empirically proves bugs in **10-15ms** by measuring real process CPU delta, heap memory usage, and execution latency.
 * **⛵ Cloud-Native Kubernetes & Docker Stack (`deploy/k8s/deployment.yaml`):** Multi-stage Dockerfile (`forgeops-sre:v1.0.0`) and complete K8s manifests running in `namespace: forgeops-system` with ServiceAccount RBAC authorization.
 
 ---
 
 ## 🌐 Target Microservices Architecture
 
-ForgeOps manages and debugs multi-language production microservices:
+ForgeOps manages and debugs polyglot production microservices across standalone repositories:
 
-| Microservice | Language | Repository Link | Bug Diagnostic Scenario |
-|---|---|---|---|
-| 🟢 **`checkout-service`** | **Node.js** | [forgeops-checkout-node](https://github.com/vikaskumarsardar/forgeops-checkout-node) | Unhandled `TypeError: Cannot read properties of undefined (reading 'find')` in promo rule calculation |
-| 🔵 **`payment-service`** | **Go** | [forgeops-payment-go](https://github.com/vikaskumarsardar/forgeops-payment-go) | Division-by-zero runtime panic when `ConversionRate == 0` |
-| 🐍 **`inventory-service`** | **Python** | [forgeops-inventory-python](https://github.com/vikaskumarsardar/forgeops-inventory-python) | String `ValueError` when `warehouse_id` receives non-numeric `"MAIN_ZONE_A"` |
+| Microservice | Language | Standalone Port | Repository Link | Bug Diagnostic Scenario |
+|---|---|---|---|---|
+| 🛒 **`checkout-service`** | **Node.js** | **4000** | [forgeops-checkout-node](https://github.com/vikaskumarsardar/forgeops-checkout-node) | Unhandled `TypeError: Cannot read properties of undefined (reading 'find')` in promo rule calculation |
+| 💳 **`payment-service`** | **Go** | **5000** | [forgeops-payment-go](https://github.com/vikaskumarsardar/forgeops-payment-go) | Division-by-zero runtime panic when `ConversionRate == 0` |
+| 📦 **`inventory-service`** | **Python** | **6000** | [forgeops-inventory-python](https://github.com/vikaskumarsardar/forgeops-inventory-python) | String `ValueError` when `warehouse_id` receives non-numeric `"MAIN_ZONE_A"` |
 
 ---
 
@@ -117,17 +118,19 @@ npm install
 # Terminal 1: Start Express API Backend (Port 4000)
 npm run server
 
-# Terminal 2: Start Next.js Cyberpunk Web UI (Port 3000)
+# Terminal 2: Start Next.js Web UI (Port 3000)
 npm run dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)** in your browser. Click **`🤖 Start Agent Triage`** to trigger the live SSE event stream!
+Open **[http://localhost:3000](http://localhost:3000)** in your browser. Click **`🔥 Trigger Prod Outage`** to trigger the live SSE event stream!
 
-### 3. Run Terminal CLI Agent
+### 3. Testing External Target Microservices (Path-Agnostic)
+
+To test ForgeOps against microservices located outside the workspace (e.g. on Desktop):
 
 ```bash
-# Terminal 3: Run Interactive CLI Agent Triage Loop
-npm run agent:cli
+# Run CLI against external microservice folder:
+TARGET_SERVICES_DIR=/home/user/Desktop/external-target-services npx tsx src/server/cliRunner.ts --service checkout-service
 ```
 
 ### 4. Deploy & Verify in Production Kubernetes
