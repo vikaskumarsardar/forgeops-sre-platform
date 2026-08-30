@@ -6,7 +6,7 @@ import AgentStream from '@/components/AgentStream';
 import ApprovalModal from '@/components/ApprovalModal';
 import { EVENT_TYPES, APPROVAL_DECISIONS } from '@/core/constants';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function Home() {
   const [statusData, setStatusData] = useState(null);
