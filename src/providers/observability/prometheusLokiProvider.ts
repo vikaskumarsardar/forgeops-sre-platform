@@ -22,42 +22,58 @@ export class PrometheusLokiObservabilityProvider implements ObservabilityProvide
     const query = encodeURIComponent(`sum(rate(http_requests_total{service="${serviceName}"}[${timeframeMinutes}m]))`);
     const url = `${this.prometheusUrl}/api/v1/query?query=${query}`;
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Prometheus API HTTP ${response.status} failed for GET ${url}: ${errorText}`);
-    }
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Prometheus API HTTP ${response.status} failed for GET ${url}: ${errorText}`);
+      }
 
-    const data = await response.json();
-    return {
-      service: serviceName,
-      provider: "Prometheus API v1",
-      timeframe: `${timeframeMinutes}m`,
-      data
-    };
+      const data = await response.json();
+      return {
+        service: serviceName,
+        provider: "Prometheus API v1",
+        timeframe: `${timeframeMinutes}m`,
+        data
+      };
+    } catch (err: any) {
+      return {
+        service: serviceName,
+        provider: "Prometheus API v1 (Offline)",
+        timeframe: `${timeframeMinutes}m`,
+        status: "OFFLINE",
+        error: `Prometheus server at ${this.prometheusUrl} is unreachable (${err.message}).`
+      };
+    }
   }
 
   async searchLogs(serviceName: string, severity: string = "ERROR", limit: number = 5): Promise<any> {
-    const query = encodeURIComponent(`{service="${serviceName}",severity="${severity}"}`);
+    const query = encodeURIComponent(`{service="${serviceName}"} |= "${severity}"`);
     const url = `${this.lokiUrl}/loki/api/v1/query_range?query=${query}&limit=${limit}`;
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Grafana Loki API HTTP ${response.status} failed for GET ${url}: ${errorText}`);
-    }
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Loki API HTTP ${response.status} failed for GET ${url}: ${errorText}`);
+      }
 
-    const data = await response.json();
-    return {
-      service: serviceName,
-      provider: "Grafana Loki Log API",
-      severity,
-      limit,
-      logs: data.data?.result || []
-    };
+      const data = await response.json();
+      return {
+        service: serviceName,
+        provider: "Grafana Loki v1",
+        data
+      };
+    } catch (err: any) {
+      return {
+        service: serviceName,
+        provider: "Grafana Loki v1 (Offline)",
+        status: "OFFLINE",
+        error: `Grafana Loki server at ${this.lokiUrl} is unreachable (${err.message}).`
+      };
+    }
   }
 }
 
-// Export named and default instances with intuitive naming for code reviewers
 export const prometheusLokiProvider = new PrometheusLokiObservabilityProvider();
 export default prometheusLokiProvider;
