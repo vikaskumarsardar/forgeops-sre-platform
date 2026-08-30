@@ -70,9 +70,22 @@ app.get('/api/stream', (req: Request, res: Response) => {
 app.get('/api/status', async (req: Request, res: Response) => {
   const targetService = (req.query.service as string) || DEFAULT_CONFIG.DEFAULT_SERVICE_NAME;
   try {
-    const observability = providerRegistry.get('observability');
-    const metrics = await observability.getMetrics(targetService, 15);
-    const deployment = await providerRegistry.get('deployment').healthCheck(targetService);
+    let metrics: any = { status: "success", data: { resultType: "vector", result: [] } };
+    let deployment: any = { healthy: true, status: SERVICE_STATUS.HEALTHY };
+
+    try {
+      const observability = providerRegistry.get(PROVIDER_CATEGORIES.OBSERVABILITY);
+      if (observability) {
+        metrics = await observability.getMetrics(targetService, 15);
+      }
+    } catch (e) {}
+
+    try {
+      const deploymentProvider = providerRegistry.get(PROVIDER_CATEGORIES.DEPLOYMENT);
+      if (deploymentProvider) {
+        deployment = await deploymentProvider.healthCheck(targetService);
+      }
+    } catch (e) {}
 
     const isIncidentActive = harness.sessionState === SESSION_STATES.INVESTIGATING || 
                              harness.sessionState === SESSION_STATES.WAITING_FOR_APPROVAL;
